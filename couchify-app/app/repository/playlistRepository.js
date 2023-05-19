@@ -12,9 +12,24 @@ const connectionManager = require('./connectionManager')
  * @throws {RepositoryError} if something failed during the Couchbase call
  */
 async function findById(key) {
-    // TODO: Implement this method to use the key to obtain a document and return it.
+    // Implement this method to use the key to obtain a document and return it.
+    const cluster = await connectionManager.couchbaseConnect();
+    const bucket = connectionManager.getBucket(process.env.BUCKET_NAME);
+    const scope = connectionManager.getScope(process.env.SCOPE_NAME);
+    const collection = scope.collection(process.env.PLAYLIST_COLLECTION_NAME);
+    
     //        Be sure to handle exceptions and throw RepositoryException
+    try {
+        const result = await collection.get(key);
 
+        return result.content;
+    } catch (err) {
+        console.error(err);
+        if (err instanceof couchbase.DocumentNotFoundError) {
+            throw new RepositoryError(`Failed to load playlist for key: ${key}`)
+        }
+        throw err;
+    }
 }
 
 /**
@@ -26,9 +41,23 @@ async function findById(key) {
  * @throws {RepositoryError} If something fails during the Couchbase call
  */
 async function create (playlist) {
-    // TODO: Implement this method to insert a new document. Use the getKey() method to generate the necessary key.
+    // Implement this method to insert a new document. Use the getKey() method to generate the necessary key.
+    const cluster = await connectionManager.couchbaseConnect();
+    const bucket = connectionManager.getBucket(process.env.BUCKET_NAME);
+    const scope = connectionManager.getScope(process.env.SCOPE_NAME);
+    const collection = scope.collection(process.env.PLAYLIST_COLLECTION_NAME);
     //        Be sure to handle exceptions and throw RepositoryException
-
+    const key = playlist.id;
+    try {
+        await collection.insert(key, playlist);
+        return key;
+    } catch (err) {
+        console.error(err);
+        if (err instanceof couchbase.DocumentExistsError) {
+            throw new RepositoryError(`Document already exists for playlistId: ${playlist.id}`)
+        }
+        throw err;
+    }
 }
 
 /**
@@ -39,9 +68,21 @@ async function create (playlist) {
  * @throws {RepositoryError} If something fails during the Couchbase call
  */
 async function remove (key) {
-    // TODO: Implement this method to remove a document based on the provided key. 
-    //        Be sure to handle exceptions and throw RepositoryException
-
+    // Initialize the cluster, bucket and scope
+    cluster = await connectionManager.couchbaseConnect();
+    bucket = connectionManager.getBucket(process.env.BUCKET_NAME);
+    scope = connectionManager.getScope(process.env.SCOPE_NAME);
+    // And select the collection
+    const collection = scope.collection(process.env.PLAYLIST_COLLECTION_NAME);
+    try {
+        await collection.remove(key);
+    } catch (err) {
+        console.error(err);
+        if (err instanceof couchbase.DocumentNotFoundError) {
+            throw new RepositoryError(`Document not found for key: ${key}`)
+        }
+        throw err;
+    }
 }
 
 /**
@@ -53,13 +94,25 @@ async function remove (key) {
  * @returns {JSON} Updated playlist
  */
 async function update (key, playlist) {
-    if (key != genKey(playlist)) {
+    if (key != playlist.id) {
         throw new RepositoryError("Key and type/id of document don't match");
     }
-    
-    // TODO: Implement this method to update an existing document. 
-    //        Be sure to handle exceptions and throw RepositoryException
-
+    // Initialize the cluster, bucket and scope
+    cluster = await connectionManager.couchbaseConnect();
+    bucket = connectionManager.getBucket(process.env.BUCKET_NAME);
+    scope = connectionManager.getScope(process.env.SCOPE_NAME);
+    // And select the collection
+    const collection = scope.collection(process.env.PLAYLIST_COLLECTION_NAME);
+    try {
+        await collection.replace(key, playlist);
+        return playlist;
+    } catch (err) {
+        console.error(err);
+        if (err instanceof couchbase.DocumentNotFoundError) {
+            throw new RepositoryError(`Document not found for key: ${key}`)
+        }
+        throw err;
+    }
 }
 
 /**
@@ -77,9 +130,22 @@ async function insertOrUpdate (key, playlist) {
     if (key != playlist.id) {
         throw new RepositoryError("Key and type/id of document don't match");
     }
-    // TODO: Implement this method to insert or update a document. 
-    //        Be sure to handle exceptions and throw RepositoryException
-
+    // Initialize the cluster, bucket and scope
+    cluster = await connectionManager.couchbaseConnect();
+    bucket = connectionManager.getBucket(process.env.BUCKET_NAME);
+    scope = connectionManager.getScope(process.env.SCOPE_NAME);
+    // And select the collection
+    const collection = scope.collection(process.env.PLAYLIST_COLLECTION_NAME);
+    try {
+        await collection.upsert(key, playlist);
+        return playlist;
+    } catch (err) {
+        console.error(err);
+        if (err instanceof couchbase.CouchbaseError) {
+            throw new RepositoryError("Something happened with the Couchbase Operation");
+        }
+        throw err;
+    }
 }
 
 /**
